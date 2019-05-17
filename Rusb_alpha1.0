@@ -1,0 +1,298 @@
+#!usr/bin/env ruby
+#===========================================================================
+# RUSB TOOL: CREATED BY CUFE HACO 5/11/2019
+#--------------------------------------------------------------------------
+# RUSB ALPHA 1.0 : FINNISHED 5/17/2019
+# THIS SCRIPT IS THE ORIGINAL!
+# RUSB ALPHA OPTIONS:
+# FORMAT USB FLASH/EXTERNAL DRIVES.
+# CREATE BOOTABLE FLASH DRIVES
+# MANAGE MULTIPAL FLASH DRIVES FOR FILE STORAGE
+# ------------------------------------------------------------------------
+# KNOWN BUGS!!!
+# MAKE SURE YOU DONT HAVE ANY EXTRA MOUNTED PARTITIONS OF YOUR HARD DRIVE! 
+# RUSB WILL NOT OPEN THE FILE MANAGER FOR BOOTABLE FLASH DRIVES!
+# PLEASE REPORT ANY OTHER BUGS TO CRAZYRABBITKING89@GMAIL.COM
+#-------------------------------------------------------------------------
+# THIS IS THE FIRST ALPHA VERSION OF RUSB. TO ENSURE SAFETY OF YOUR SYSTEM,
+# MAKE SURE THAT NO SECONDARY PARTITIONS OF YOUR HARD DRIVE ARE MOUNTED.
+# TAMPERING WITH THIS SCRIPT CAN LEAD TO DAMAGE TO YOUR SYSTEM.
+# THIS RELEASE IS SAFE TO USE, HOWEVER, I AM NOT LIABLE FOR ANY DAMAGES,
+# FOR MISUSE OF THIS PROGRAM. 
+#------------------------------------------------------------------------
+#PROGRAM REQUIRMENTS:
+# DEBIAN BASED OPERATING SYSTEM (UBUNTU, MINT, RASPBIAN, ETC.)
+# RUBYTK (ANY RUBY VERSION ABOVE 2.3 REQUIRES THE TK PATCH THAT CAN BE FOUND:
+# https://github.com/CufeHaco/Tk_Patch
+#==========================================================================
+
+
+
+require 'tk'
+require 'sudo'
+#---------------------------------------------------------------------------
+class Rusb_gui
+	def initialize
+					 
+header_font = TkFont.new("size" => 16 , "weight" => 'bold')	
+header2_font = TkFont.new('size' => 12)
+
+@header2_var = TkVariable.new 
+
+refresh = proc {usb_drives}
+check_mount = proc {select_drive}
+format_window_proc = proc {format_window}
+iso_writer_proc = proc {iso_writer}
+device_info_proc = proc {device_info}
+
+#---------------------------------------------------------------------------
+
+$main_win = TkRoot.new {title "RUSB: Ruby USB Tool Alpha Version 1.0"}
+
+frame1 = TkFrame.new($main_win) {
+						borderwidth 5       ;
+						padx 15	            ;
+						pady 15             ;
+						relief 'groove'     ;
+						pack('fill' => 'x') ;
+					 }	
+
+
+$main_win['geometry'] = "600x600"
+
+
+
+header = TkLabel.new {font header_font        ;
+					  text "RUSB MANAGER" ;
+					  pack(frame1)
+
+                     }
+
+header2 = TkLabel.new{ font header2_font ;
+					   text " User logged in as: #{`echo $USER`.chomp}"
+					   pack(frame1)
+					 }
+spacer_label = TkLabel.new {text " " ; pack(frame1)}
+usb_drive_label = TkLabel.new {text "USB DRIVES" ; pack(frame1)}
+@usb_list = Tk::Tile::Combobox.new{pack(frame1) }
+@usb_list.values = []
+	
+
+refresh_button = TkButton.new {
+								 text "Refresh list" ;
+								 command refresh ;
+								 pack(frame1)									  
+									  }
+open_usb_folder = TkButton.new {
+						   text "View USB Files"
+						   command check_mount
+						   pack(frame1)
+						   }
+					     
+format_menu_button = TkButton.new {
+								   text "Open Format Utility"
+								   command format_window_proc
+								   pack(frame1)
+	                               }		
+
+imagewrite_button = TkButton.new {
+								  text "Open Image Writer Utility"
+								  command iso_writer_proc
+								  pack(frame1)
+								  }
+drive_info_button = TkButton.new {
+							      text "Device Information"
+							      command device_info_proc
+							      pack(frame1)
+							      }
+
+			
+#--------------------------------------------------------------------------------			
+
+def usb_drives
+		a = `mount|grep /media|awk '{print $3}'`.length
+		b = `mount|grep /media|awk '{print $1}'`.length
+		c = `mount|grep /media|awk '{print $5}'`.length
+		
+		if a == 0
+		@usb_list.values = []
+		end
+		if a > 0
+		@usb_list.values = `mount|grep /media|awk '{print $3}'`.split
+		end
+		
+	if b == 0
+	@root_dir_path = []
+  end
+ if b > 0
+ @root_dir_path = `mount|grep /media|awk '{print $1}'`.split
+ end
+ 
+	if c == 0
+	@drive_partition = []
+	end
+	if c > 0
+	@drive_partition  = `mount|grep /media|awk '{print $5}'`.split
+	end
+ end
+ 
+#---------------------------------------------------------------------------
+	
+	def select_drive
+	mounted_drives = @usb_list.values.count
+		if mounted_drives == 0
+		Tk::messageBox :message => 'No USB Drives Found!'
+		end
+		if mounted_drives > 0
+		system "xdg-open #{@usb_list.values["#{@usb_list.current}".to_i]}"
+		end
+
+	end
+
+	def format_window
+	a = `mount|grep /media|awk '{print $3}'`.length
+
+		if a == 0
+		Tk::messageBox :message => "No Devices Detected!"
+		end
+		if a > 0
+		current_drive =  @usb_list.values["#{@usb_list.current}".to_i]
+		@root_dir =  @root_dir_path["#{@usb_list.current}".to_i]
+		format = proc {format_function}
+		header2_font = TkFont.new('size' => 12)
+
+		@f_subwin = TkToplevel.new($main_win){title "RUSB FORMAT UTILITY"}
+		@f_subwin['geometry'] = '400x200'
+
+		f_subwin_header = TkLabel.new(@f_subwin){ font header2_font
+												  text "RUSB FORMAT UTILITY"
+												  pack
+												}
+
+		f_drive_label = TkLabel.new(@f_subwin){
+												text "Ready to format:  #{current_drive}"
+												pack 
+												}
+
+		format_type_label = TkLabel.new(@f_subwin){
+													text "Select Partition type:"
+													pack
+													}
+
+		@format_type = Tk::Tile::Combobox.new(@f_subwin){pack}
+		@format_type.values = ["VFAT", "NTFS", "LINUX-SWAP"]
+
+		format_button = TkButton.new(@f_subwin) {
+										text "FORMAT"
+										command format
+										pack
+										}
+		end
+		
+#---------------------------------------------------------------------------		
+		def format_function
+		Tk::messageBox :message => "Ready to format #{@root_dir} to #{ @format_type.values["#{@format_type.current}".to_i]}"
+		`umount #{@root_dir} ` 
+		`sudo  mkfs.#{@format_type.values["#{@format_type.current}".to_i].downcase} #{@root_dir}` 
+		`echo $sudoPW`
+		Tk::messageBox :message => "USB Drive Format Complete!
+		Please remove Device."
+		@f_subwin.destroy
+		end
+	end
+ 
+#---------------------------------------------------------------------------
+		def iso_writer
+
+		current_drive =  @usb_list.values["#{@usb_list.current}".to_i]
+		header2_font = TkFont.new('size' => 12)
+
+		@dir_path = TkVariable.new
+		@dir_path.value = "/home/#{`echo $USER`.chomp}/"
+		write_image_proc = proc {write_image}
+
+		@iso_subwin = TkToplevel.new($main_win)
+		@iso_subwin['geometry'] = '400x200'
+
+		iso_label = TkLabel.new(@iso_subwin) { font header2_font
+												text "RUSB IMAGE WRITER UTILITY"
+												pack
+												}
+
+		drive_write_label = TkLabel.new(@iso_subwin){
+													text "Ready to Write Image to:  #{current_drive}"
+													pack 
+													}
+
+		iso_dir_label = TkLabel.new(@iso_subwin){
+												text "Image Directory Path"
+												pack
+												}
+										 
+		iso_dir_entry = TkEntry.new(@iso_subwin , 'textvariable' => @dir_path) {  
+																				width 30
+									  											pack
+																				}
+									  
+		iso_write_button = TkButton.new(@iso_subwin) {
+														text "Write Image"
+														command write_image_proc
+														pack
+														}
+
+#---------------------------------------------------------------------------
+
+		def write_image
+		a = File.exists?("#{@dir_path}")
+
+			if a != true
+			Tk::messageBox :message => "Directory Does Not Exist!"
+			end
+
+			if a != false
+			b = File.extname("#{@dir_path}")
+				if b != ".iso"
+				Tk::messageBox :message => "Invalid File type! Must be .iso file!"
+				end
+			end
+			
+			if b == ".iso"	
+			Tk::messageBox :message => " Creating Boot Image:
+#{@dir_path}
+to #{@root_dir_path["#{@usb_list.current}".to_i]}"
+system "sudo dd if=#{@dir_path} of=#{@root_dir_path["#{@usb_list.current}".to_i]} bs=4M && sync"
+Tk::messageBox :message =>  "New Boot Image Created!"
+@iso_subwin.destroy
+		end
+end
+
+
+end 
+ 
+#--------------------------------------------------------------------------- 
+ 
+ def device_info
+ c = `mount|grep /media|awk '{print $5}'`.length
+	if c == 0
+ Tk::messageBox :message => "No Devices Detected!"
+	end
+	if c > 0
+ Tk::messageBox :message => "#{@usb_list.values["#{@usb_list.current}".to_i]} mounted on #{@root_dir_path["#{@usb_list.current}".to_i]}.
+ partition type :#{@drive_partition["#{@usb_list.current}".to_i]}"
+ 
+ 
+	end
+	
+
+	
+ end
+ 
+
+ refresh.call
+ #-------------------------------------------------------------------------------------------------------------------------------
+Tk.mainloop
+	end
+end
+#---------------------------------------------------------------------------
+
+Rusb_gui.new
